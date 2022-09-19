@@ -579,9 +579,9 @@ class GenerativeQAModule(BaseTransformer):
 
 def main(args=None, model=None) -> GenerativeQAModule:
     parser = argparse.ArgumentParser()
-    parser = pl.Trainer.add_argparse_args(parser)
     parser = GenerativeQAModule.add_model_specific_args(parser, os.getcwd())
     parser = GenerativeQAModule.add_retriever_specific_args(parser)
+    parser = pl.Trainer.add_argparse_args(parser)
 
     args = args or parser.parse_args()
 
@@ -676,10 +676,10 @@ def main(args=None, model=None) -> GenerativeQAModule:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser = pl.Trainer.add_argparse_args(parser)
     parser = GenerativeQAModule.add_model_specific_args(parser, os.getcwd())
     parser = GenerativeQAModule.add_retriever_specific_args(parser)
     parser = GenerativeQAModule.add_ray_specific_args(parser)
+    parser = pl.Trainer.add_argparse_args(parser)
 
     # Pytorch Lightning Profiler
     parser.add_argument(
