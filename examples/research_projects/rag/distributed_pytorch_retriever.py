@@ -41,7 +41,7 @@ class RagPyTorchDistributedRetriever(RagRetriever):
         )
         self.process_group = None
 
-    def init_retrieval(self, distributed_port: int):
+    def init_retrieval(self, distributed_port: int = -1):
         """
         Retriever initialization function, needs to be called from the training process. The function sets some common parameters
         and environment variables. On top of that, (only) the main process in the process group loads the index into memory.

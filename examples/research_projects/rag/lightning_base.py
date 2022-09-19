@@ -391,7 +391,6 @@ def generic_train(
 
     trainer = pl.Trainer.from_argparse_args(
         args,
-        weights_summary=None,
         callbacks=[logging_callback] + extra_callbacks + [checkpoint_callback] + [InitCallback()],
         # plugins=[custom_ddp_plugin],
         logger=logger,
