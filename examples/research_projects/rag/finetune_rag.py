@@ -46,6 +46,7 @@ from utils_rag import (  # noqa: E402 # isort:skip
     pickle_save, save_git_info, save_json, set_extra_model_params,
     Seq2SeqDataset,
 )
+import query
 
 # need the parent dir module
 sys.path.insert(2, str(Path(__file__).resolve().parents[1]))
@@ -653,6 +654,9 @@ def main(args=None, model=None) -> GenerativeQAModule:
                                                args.early_stopping_patience)
                    if args.early_stopping_patience >= 0 else False)
 
+    if args.test_query:
+        pre_qads = query.query(model)
+
     trainer: pl.Trainer = generic_train(
         model,
         args,
@@ -668,6 +672,10 @@ def main(args=None, model=None) -> GenerativeQAModule:
 
     if args.save_after_train:
         trainer.save_checkpoint(model.output_dir / "model.ckpt")
+
+    if args.test_query:
+        post_qads = query.query(model)
+        query.compare_and_print(pre_qads, post_qads)
 
     if not args.do_predict:
         return model
@@ -698,6 +706,10 @@ if __name__ == "__main__":
     parser.add_argument("--save_after_train",
                         action="store_true",
                         help="Whether to save model after training.")
+    parser.add_argument(
+        "--test_query",
+        action="store_true",
+        help="Whether to test query before and after training.")
 
     args = parser.parse_args()
 
