@@ -666,6 +666,9 @@ def main(args=None, model=None) -> GenerativeQAModule:
     )
     pickle_save(model.hparams, model.output_dir / "hparams.pkl")
 
+    if args.save_after_train:
+        trainer.save_checkpoint(model.output_dir / "model.ckpt")
+
     if not args.do_predict:
         return model
 
@@ -691,6 +694,10 @@ if __name__ == "__main__":
         help=
         "If True, use pytorch_lightning.profiler.AdvancedProfiler to profile the Trainer.",
     )
+
+    parser.add_argument("--save_after_train",
+                        action="store_true",
+                        help="Whether to save model after training.")
 
     args = parser.parse_args()
 
