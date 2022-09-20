@@ -1,8 +1,3 @@
-import pickle
-from pathlib import Path
-
-from finetune_rag import GenerativeQAModule
-
 questions = [
     "The unusual heat was most noteworthy in Europe, which had its warmest April on record, and Australia, which had its second-warmest.",
     "Climate change is not man made.", "Climate change is man made.",
@@ -16,12 +11,15 @@ questions = [
     "Climate change does not cause more extreme weather events.",
     "Renewable energy is just an excuse for making coorperations more profit.",
     "Animals will adapt to climate change.",
-    "Polar bear numbers are increasing.", "What is climate change?",
-    "How do you spell licorice"
+    "Polar bear numbers are increasing.",
+    "The increase in global freshwater flow, based on data from 1994 to 2006, was about 18%.",
+    "What is climate change?", "How do you spell licorice"
 ]
 
 
 def query(model):
+    qads = []
+
     for question in questions:
         # Tokenize the question.
         input_ids = model.tokenizer.question_encoder(
@@ -37,40 +35,41 @@ def query(model):
         generated = model.model.generate(input_ids)
 
         # Convert the answer tokens back into a single string.
-        generated_string = model.add_model_specific_argstokenizer.batch_decode(
+        generated_string = model.tokenizer.batch_decode(
             generated, skip_special_tokens=True)[0]
 
-        print("\nQ: " + question)
-        print("A: " + generated_string)
+        qads.append((question, generated_string, []))
 
-        print("Retrieved documents:")
         for doc in model.model.retriever.index.get_doc_dicts(
                 docs_dict["doc_ids"])[0]["text"]:
-            print(f"  {doc}")
+            qads[-1][-1].append(doc)
+
+    return qads
 
 
-def main():
-    model = GenerativeQAModule.load_from_checkpoint(
-        checkpoint_path="../rag/experiments/1/model.ckpt")
+def compare_and_print(pre_qads, post_qads):
+    diff = 0
+    answers = []
 
-    query(model)
+    for pre, post in zip(pre_qads, post_qads):
+        pre_q, pre_a, pre_docs = pre
+        post_q, post_a, post_docs = post
 
-    if False:
-        # Swap out retriever
-        hparams = pickle.load(
-            open(Path(model.output_dir) / "hparams.pkl", "rb"))
+        print(f"\nQ: {pre_q}")
+        print(f"Pre A: {pre_a}")
+        print(f"  {pre_docs}")
+        print(f"Post A: {post_a}")
+        print(f"  {post_docs}")
 
-        config_class = RagConfig if model.is_rag_model else AutoConfig
-        config = config_class.from_pretrained(hparams.model_name_or_path)
+        diff += int(pre_a != post_a)
 
-        # set retriever parameters
-        config.index_name = "custom"
-        config.passages_path = "../datasets/knowledge_base/empty-dataset/my_knowledge_dataset"
-        config.index_path = "../datasets/knowledge_base/empty-dataset/my_knowledge_dataset_hnsw_index.faiss"
-        config.use_dummy_dataset = False
+        if pre_a not in answers:
+            answers.append(pre_a)
+        if post_a not in answers:
+            answers.append(post_a)
 
-        retriever = None
-
-
-if __name__ == "__main__":
-    main()
+    print("--------------------------------")
+    print("SUMMARY")
+    print("--------------------------------")
+    print(f"Answers given: {answers}")
+    print(f"Differing answers before and after swapping retriever: {diff}")
