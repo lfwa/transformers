@@ -1,15 +1,16 @@
 import os
 import pickle
 from pathlib import Path
+import argparse
 
 from finetune_rag import GenerativeQAModule
 from transformers import RagRetriever
 import query
 
 
-def main():
+def main(args):
     model = GenerativeQAModule.load_from_checkpoint(
-        checkpoint_path="../rag/experiments/1/model.ckpt")
+        checkpoint_path=Path(args.model_dir) / "model.ckpt")
 
     pre_qads = query.query(model)
 
@@ -37,4 +38,12 @@ if __name__ == "__main__":
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  # see issue #152
     os.environ["CUDA_VISIBLE_DEVICES"] = "6"
 
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model_dir",
+                        type=str,
+                        required=True,
+                        help="Path to where model is stored.")
+
+    args = parser.parse_args()
+
+    main(args)
