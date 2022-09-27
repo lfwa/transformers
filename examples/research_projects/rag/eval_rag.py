@@ -133,7 +133,36 @@ def evaluate_batch_e2e(args, rag_model, questions):
         )
         answers = rag_model.retriever.generator_tokenizer.batch_decode(outputs, skip_special_tokens=True)
 
-        if args.print_predictions:
+        if args.print_docs or args.save_docs_as_kb_file is not None:
+            retrieved_docs = []
+            retrieved_titles = []
+            question_enc_outputs = rag_model.rag.question_encoder(input_ids)
+            question_enc_pool_output = question_enc_outputs[0]
+
+            result = rag_model.retriever(
+                input_ids,
+                question_enc_pool_output.cpu().detach().to(torch.float32).numpy(),
+                prefix=rag_model.rag.generator.config.prefix,
+                n_docs=rag_model.config.n_docs,
+                return_tensors="pt",
+            )
+            all_docs = rag_model.retriever.index.get_doc_dicts(result.doc_ids)
+            for docs in all_docs:
+                texts = [text for text in docs["text"]]
+                titles = [title for title in docs["title"]]
+                retrieved_docs.append(texts)
+                retrieved_titles.append(titles)
+            
+        if args.save_docs_as_kb_file is not None:
+            with open(args.save_docs_as_kb_file, "a+") as f:
+                for titles, texts in zip(retrieved_titles, retrieved_docs):
+                    for title, text in zip(titles, texts):
+                        f.write(f"{title}\t{text}\n")
+
+        if args.print_predictions and args.print_docs:
+            for q, a, d in zip(questions, answers, retrieved_docs):
+                logger.info(f"Q: {q} - A: {a}\nDocs: {d}")
+        elif args.print_predictions:
             for q, a in zip(questions, answers):
                 logger.info("Q: {} - A: {}".format(q, a))
 
@@ -154,7 +183,7 @@ def get_args():
     parser.add_argument(
         "--index_name",
         default=None,
-        choices=["exact", "compressed", "legacy"],
+        choices=["exact", "compressed", "legacy", "custom"],
         type=str,
         help="RAG model retriever type",
     )
@@ -163,6 +192,12 @@ def get_args():
         default=None,
         type=str,
         help="Path to the retrieval index",
+    )
+    parser.add_argument(
+        "--passages_path",
+        default=None,
+        type=str,
+        help="Path to dataset",
     )
     parser.add_argument("--n_docs", default=5, type=int, help="Number of retrieved docs")
     parser.add_argument(
@@ -249,6 +284,12 @@ def get_args():
         action="store_true",
         help="If True, prints docs retried while generating.",
     )
+    parser.add_argument(
+        "--save_docs_as_kb_file",
+        type=str,
+        default=None,
+        help="File to save retrieved documents (text and title). If None then no saving is performed. Note that this operation appends to the file!"
+    )
     args = parser.parse_args()
     args.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     return args
@@ -266,6 +307,9 @@ def main(args):
             model_kwargs["index_name"] = args.index_name
         if args.index_path is not None:
             model_kwargs["index_path"] = args.index_path
+        if args.passages_path is not None:
+            model_kwargs["passages_path"] = args.passages_path
+            model_kwargs["use_dummy_dataset"] = False
     else:
         model_class = BartForConditionalGeneration
 

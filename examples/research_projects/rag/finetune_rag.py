@@ -674,6 +674,7 @@ def main(args=None, model=None) -> GenerativeQAModule:
         trainer.save_checkpoint(model.output_dir / "model.ckpt")
 
     if args.test_query:
+        model.eval()
         post_qads = query.query(model)
         query.compare_and_print(pre_qads, post_qads)
 
@@ -686,9 +687,6 @@ def main(args=None, model=None) -> GenerativeQAModule:
 
 
 if __name__ == "__main__":
-    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  # see issue #152
-    os.environ["CUDA_VISIBLE_DEVICES"] = "6"
-
     parser = argparse.ArgumentParser()
     parser = GenerativeQAModule.add_model_specific_args(parser, os.getcwd())
     parser = GenerativeQAModule.add_retriever_specific_args(parser)
