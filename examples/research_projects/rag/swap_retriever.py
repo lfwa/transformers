@@ -22,8 +22,12 @@ def main(args):
     # Swap out retriever.
     hparams = pickle.load(open(Path(model.output_dir) / "hparams.pkl", "rb"))
     index_name = "custom"
-    dataset_path = str(Path(args.dataset_dir) / "knowledge_base/empty-dataset/my_knowledge_dataset")
-    index_path = str(Path(args.dataset_dir) / "knowledge_base/empty-dataset/my_knowledge_dataset_hnsw_index.faiss")
+    dataset_path = str(
+        Path(args.dataset_dir) /
+        "knowledge_base/empty-dataset/my_knowledge_dataset")
+    index_path = str(
+        Path(args.dataset_dir) /
+        "knowledge_base/empty-dataset/my_knowledge_dataset_hnsw_index.faiss")
     use_dummy_dataset = False
 
     retriever = RagRetriever.from_pretrained(
@@ -40,9 +44,6 @@ def main(args):
 
 
 if __name__ == "__main__":
-    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  # see issue #152
-    os.environ["CUDA_VISIBLE_DEVICES"] = "6"
-
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_dir",
                         type=str,
@@ -52,7 +53,10 @@ if __name__ == "__main__":
                         default="/mnt/ds3lab-scratch/laanthony/datasets/",
                         type=str,
                         help="Path to where model is stored.")
-    parser.add_argument("--seed", type=int, default=42, help="random seed for initialization")
+    parser.add_argument("--seed",
+                        type=int,
+                        default=42,
+                        help="random seed for initialization")
 
     args = parser.parse_args()
 
