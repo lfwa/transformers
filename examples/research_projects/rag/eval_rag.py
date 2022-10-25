@@ -230,7 +230,7 @@ def only_retrieve(args, rag_model, questions):
                 question_enc_pool_output.cpu().detach().to(
                     torch.float32).numpy(),
                 prefix=rag_model.rag.generator.config.prefix,
-                n_docs=rag_model.config.n_docs,
+                n_docs=1000,
                 return_tensors="pt",
             )
             all_docs = rag_model.retriever.index.get_doc_dicts(result.doc_ids)
@@ -253,9 +253,9 @@ def only_retrieve(args, rag_model, questions):
             for q in questions:
                 logger.info("Q: {}".format(q))
 
-        if args.write_docs_to_file:
+        if args.write_docs_to_file is not None:
             for q, d in zip(questions, retrieved_docs):
-                with open(q + "_top1000.txt", "w") as f:
+                with open(os.path.join(args.write_docs_to_file, q + "_top1000.txt"), "w") as f:
                     f.write(str(d))
 
         return questions
@@ -456,8 +456,9 @@ def get_args():
         "File to save retrieved documents (text and title). If None then no saving is performed. Note that this operation appends to the file!"
     )
     parser.add_argument("--write_docs_to_file",
-                        action="store_true",
-                        help="Write docs to file for each answer.")
+                        type=str,
+                        default=None,
+                        help="Path to write docs to file for only_retrieve.")
     parser.add_argument(
         "--timing",
         action="store_true",
@@ -504,7 +505,7 @@ def main(args):
     logger.info("Evaluate the following checkpoints: %s", checkpoints)
 
     score_fn = get_scores if args.eval_mode == "e2e" else get_precision_at_k
-    evaluate_batch_fn = only_retrive if args.only_retrieve else (
+    evaluate_batch_fn = only_retrieve if args.only_retrieve else (
         time_generation if args.timing else
         (iterate_top if args.iterate_top else
          (evaluate_batch_e2e if args.eval_mode ==
