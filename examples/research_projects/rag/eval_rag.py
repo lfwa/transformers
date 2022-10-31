@@ -12,7 +12,13 @@ import torch
 from tqdm import tqdm
 import numpy as np
 
-from transformers import BartForConditionalGeneration, RagRetriever, RagSequenceForGeneration, RagTokenForGeneration, RagTokenizer
+from transformers import (
+    BartForConditionalGeneration,
+    RagRetriever,
+    RagSequenceForGeneration,
+    RagTokenForGeneration,
+    RagTokenizer,
+)
 from transformers import logging as transformers_logging
 
 sys.path.append(os.path.join(os.getcwd()))  # noqa: E402 # isort:skip
@@ -56,10 +62,12 @@ def get_scores(args, preds_path, gold_data_path):
     f1 = em = total = 0
     for prediction, ground_truths in zip(hypos, answers):
         total += 1
-        em += metric_max_over_ground_truths(exact_match_score, prediction,
-                                            ground_truths)
-        f1 += metric_max_over_ground_truths(f1_score, prediction,
-                                            ground_truths)
+        em += metric_max_over_ground_truths(
+            exact_match_score, prediction, ground_truths
+        )
+        f1 += metric_max_over_ground_truths(
+            f1_score, prediction, ground_truths
+        )
 
     em = 100.0 * em / total
     f1 = 100.0 * f1 / total
@@ -94,12 +102,14 @@ def evaluate_batch_retrieval(args, rag_model, questions):
             title = title[:-1]
         return title
 
-    retriever_input_ids = rag_model.retriever.question_encoder_tokenizer.batch_encode_plus(
-        questions,
-        return_tensors="pt",
-        padding=True,
-        truncation=True,
-    )["input_ids"].to(args.device)
+    retriever_input_ids = (
+        rag_model.retriever.question_encoder_tokenizer.batch_encode_plus(
+            questions,
+            return_tensors="pt",
+            padding=True,
+            truncation=True,
+        )["input_ids"].to(args.device)
+    )
 
     question_enc_outputs = rag_model.rag.question_encoder(retriever_input_ids)
     question_enc_pool_output = question_enc_outputs[0]
@@ -129,11 +139,12 @@ def time_generation(args, rag_model, questions, tokenizer):
             docs_dict = rag_model.retriever(
                 input_ids.cpu().numpy(),
                 question_hidden_states.cpu().numpy(),
-                return_tensors="pt").to(args.device)
+                return_tensors="pt",
+            ).to(args.device)
             doc_scores = torch.bmm(
                 question_hidden_states.unsqueeze(1),
-                docs_dict["retrieved_doc_embeds"].float().transpose(
-                    1, 2)).squeeze(1)
+                docs_dict["retrieved_doc_embeds"].float().transpose(1, 2),
+            ).squeeze(1)
 
             start_time = time.time()
 
@@ -162,34 +173,48 @@ def iterate_top(args, rag_model, questions, tokenizer):
                 input_ids.cpu().numpy(),
                 question_hidden_states.cpu().numpy(),
                 return_tensors="pt",
-                n_docs=10).to(args.device)
+                n_docs=rag_model.config.n_docs,
+            ).to(args.device)
             doc_scores = torch.bmm(
                 question_hidden_states.unsqueeze(1),
-                docs_dict["retrieved_doc_embeds"].float().transpose(
-                    1, 2)).squeeze(1)
+                docs_dict["retrieved_doc_embeds"].float().transpose(1, 2),
+            ).squeeze(1)
 
             start_time = time.time()
 
             context_input_id_reshape = (
-                1, docs_dict["context_input_ids"].size()[1])
+                1,
+                docs_dict["context_input_ids"].size()[1],
+            )
             context_att_mask_reshape = (
-                1, docs_dict["context_attention_mask"].size()[1])
+                1,
+                docs_dict["context_attention_mask"].size()[1],
+            )
             retrieved_doc_embed_reshape = (
-                docs_dict["retrieved_doc_embeds"].size()[0], 1,
-                docs_dict["retrieved_doc_embeds"].size()[2])
-            doc_id_reshape = (docs_dict["doc_ids"].size()[0], 1
-                              )  # TODO: Might need to be swapped around
-            doc_score_reshape = (doc_scores.size()[0], 1
-                                 )  # TODO: Might need to be swapped around
+                docs_dict["retrieved_doc_embeds"].size()[0],
+                1,
+                docs_dict["retrieved_doc_embeds"].size()[2],
+            )
+            doc_id_reshape = (
+                docs_dict["doc_ids"].size()[0],
+                1,
+            )  # TODO: Might need to be swapped around
+            doc_score_reshape = (
+                doc_scores.size()[0],
+                1,
+            )  # TODO: Might need to be swapped around
 
             # TODO: Might break when changing to a different batch size
             for i in range(doc_scores.size()[1]):
                 context_input_id = docs_dict["context_input_ids"][i].reshape(
-                    context_input_id_reshape)
+                    context_input_id_reshape
+                )
                 context_att_mask = docs_dict["context_attention_mask"][
-                    i].reshape(context_att_mask_reshape)
+                    i
+                ].reshape(context_att_mask_reshape)
                 retrieved_doc_embed = docs_dict["retrieved_doc_embeds"][
-                    0, i].reshape(retrieved_doc_embed_reshape)
+                    0, i
+                ].reshape(retrieved_doc_embed_reshape)
                 doc_id = docs_dict["doc_ids"][0, i].reshape(doc_id_reshape)
                 doc_score = doc_scores[0, i].reshape(doc_score_reshape)
 
@@ -200,7 +225,8 @@ def iterate_top(args, rag_model, questions, tokenizer):
                 )
 
                 generated_string = tokenizer.batch_decode(
-                    generated, skip_special_tokens=True)
+                    generated, skip_special_tokens=True
+                )
                 outputs.append(generated_string)
 
             elapsed = time.time() - start_time
@@ -214,8 +240,11 @@ def iterate_top(args, rag_model, questions, tokenizer):
 
 def only_retrieve(args, rag_model, questions):
     with torch.no_grad():
-        inputs_dict = rag_model.retriever.question_encoder_tokenizer.batch_encode_plus(
-            questions, return_tensors="pt", padding=True, truncation=True)
+        inputs_dict = (
+            rag_model.retriever.question_encoder_tokenizer.batch_encode_plus(
+                questions, return_tensors="pt", padding=True, truncation=True
+            )
+        )
 
         input_ids = inputs_dict.input_ids.to(args.device)
 
@@ -227,10 +256,12 @@ def only_retrieve(args, rag_model, questions):
 
             result = rag_model.retriever(
                 input_ids,
-                question_enc_pool_output.cpu().detach().to(
-                    torch.float32).numpy(),
+                question_enc_pool_output.cpu()
+                .detach()
+                .to(torch.float32)
+                .numpy(),
                 prefix=rag_model.rag.generator.config.prefix,
-                n_docs=1000,
+                n_docs=rag_model.config.n_docs,
                 return_tensors="pt",
             )
             all_docs = rag_model.retriever.index.get_doc_dicts(result.doc_ids)
@@ -253,18 +284,16 @@ def only_retrieve(args, rag_model, questions):
             for q in questions:
                 logger.info("Q: {}".format(q))
 
-        if args.write_docs_to_file is not None:
-            for q, d in zip(questions, retrieved_docs):
-                with open(os.path.join(args.write_docs_to_file, q + "_top1000.txt"), "w") as f:
-                    f.write(str(d))
-
         return questions
 
 
 def evaluate_batch_e2e(args, rag_model, questions):
     with torch.no_grad():
-        inputs_dict = rag_model.retriever.question_encoder_tokenizer.batch_encode_plus(
-            questions, return_tensors="pt", padding=True, truncation=True)
+        inputs_dict = (
+            rag_model.retriever.question_encoder_tokenizer.batch_encode_plus(
+                questions, return_tensors="pt", padding=True, truncation=True
+            )
+        )
 
         input_ids = inputs_dict.input_ids.to(args.device)
         attention_mask = inputs_dict.attention_mask.to(args.device)
@@ -281,7 +310,8 @@ def evaluate_batch_e2e(args, rag_model, questions):
             ],  # BART likes to repeat BOS tokens, dont allow it to generate more than one
         )
         answers = rag_model.retriever.generator_tokenizer.batch_decode(
-            outputs, skip_special_tokens=True)
+            outputs, skip_special_tokens=True
+        )
 
         if args.print_docs or args.save_docs_as_kb_file is not None:
             retrieved_docs = []
@@ -291,8 +321,10 @@ def evaluate_batch_e2e(args, rag_model, questions):
 
             result = rag_model.retriever(
                 input_ids,
-                question_enc_pool_output.cpu().detach().to(
-                    torch.float32).numpy(),
+                question_enc_pool_output.cpu()
+                .detach()
+                .to(torch.float32)
+                .numpy(),
                 prefix=rag_model.rag.generator.config.prefix,
                 n_docs=rag_model.config.n_docs,
                 return_tensors="pt",
@@ -326,9 +358,10 @@ def get_args():
         "--model_type",
         choices=["rag_sequence", "rag_token", "bart"],
         type=str,
-        help=
-        ("RAG model type: rag_sequence, rag_token or bart, if none specified, the type is inferred from the"
-         " model_name_or_path"),
+        help=(
+            "RAG model type: rag_sequence, rag_token or bart, if none specified, the type is inferred from the"
+            " model_name_or_path"
+        ),
     )
     parser.add_argument(
         "--index_name",
@@ -349,31 +382,29 @@ def get_args():
         type=str,
         help="Path to dataset",
     )
-    parser.add_argument("--n_docs",
-                        default=5,
-                        type=int,
-                        help="Number of retrieved docs")
+    parser.add_argument(
+        "--n_docs", default=5, type=int, help="Number of retrieved docs"
+    )
     parser.add_argument(
         "--model_name_or_path",
         default=None,
         type=str,
         required=True,
-        help=
-        "Path to pretrained checkpoints or model identifier from huggingface.co/models",
+        help="Path to pretrained checkpoints or model identifier from huggingface.co/models",
     )
     parser.add_argument(
         "--eval_mode",
         choices=["e2e", "retrieval"],
         default="e2e",
         type=str,
-        help=
-        ("Evaluation mode, e2e calculates exact match and F1 of the downstream task, retrieval calculates"
-         " precision@k."),
+        help=(
+            "Evaluation mode, e2e calculates exact match and F1 of the downstream task, retrieval calculates"
+            " precision@k."
+        ),
     )
-    parser.add_argument("--k",
-                        default=1,
-                        type=int,
-                        help="k for the precision@k calculation")
+    parser.add_argument(
+        "--k", default=1, type=int, help="k for the precision@k calculation"
+    )
     parser.add_argument(
         "--evaluation_set",
         default=None,
@@ -393,24 +424,22 @@ def get_args():
         default="qa",
         type=str,
         choices=["qa", "ans"],
-        help=
-        ("Format of the gold data file"
-         "qa - a single line in the following format: question [tab] answer_list"
-         "ans - a single line of the gold file contains the expected answer string"
-         ),
+        help=(
+            "Format of the gold data file"
+            "qa - a single line in the following format: question [tab] answer_list"
+            "ans - a single line of the gold file contains the expected answer string"
+        ),
     )
     parser.add_argument(
         "--predictions_path",
         type=str,
         default="predictions.txt",
-        help=
-        "Name of the predictions file, to be stored in the checkpoints directory",
+        help="Name of the predictions file, to be stored in the checkpoints directory",
     )
     parser.add_argument(
         "--eval_all_checkpoints",
         action="store_true",
-        help=
-        "Evaluate all checkpoints starting with the same prefix as model_name ending and ending with step number",
+        help="Evaluate all checkpoints starting with the same prefix as model_name ending and ending with step number",
     )
     parser.add_argument(
         "--eval_batch_size",
@@ -429,14 +458,18 @@ def get_args():
         type=int,
         help="Number of beams to be used when generating answers",
     )
-    parser.add_argument("--min_length",
-                        default=1,
-                        type=int,
-                        help="Min length of the generated answers")
-    parser.add_argument("--max_length",
-                        default=50,
-                        type=int,
-                        help="Max length of the generated answers")
+    parser.add_argument(
+        "--min_length",
+        default=1,
+        type=int,
+        help="Min length of the generated answers",
+    )
+    parser.add_argument(
+        "--max_length",
+        default=50,
+        type=int,
+        help="Max length of the generated answers",
+    )
 
     parser.add_argument(
         "--print_predictions",
@@ -452,28 +485,27 @@ def get_args():
         "--save_docs_as_kb_file",
         type=str,
         default=None,
-        help=
-        "File to save retrieved documents (text and title). If None then no saving is performed. Note that this operation appends to the file!"
+        help="File to save retrieved documents (text and title). If None then no saving is performed. Note that this operation appends to the file!",
     )
-    parser.add_argument("--write_docs_to_file",
-                        type=str,
-                        default=None,
-                        help="Path to write docs to file for only_retrieve.")
     parser.add_argument(
         "--timing",
         action="store_true",
-        help="If True, runs timing query for each question instead.")
+        help="If True, runs timing query for each question instead.",
+    )
     parser.add_argument(
         "--iterate_top",
         action="store_true",
-        help=
-        "If True, runs iteration over top 10 documents and see if output changes."
+        help="If True, runs iteration over top 10 documents and see if output changes.",
     )
     parser.add_argument(
         "--only_retrieve",
         action="store_true",
-        help=
-        "If True, only retrieves top documents and does not feed them through the BERT part of RAG."
+        help="If True, only retrieves top documents and does not feed them through the BERT part of RAG.",
+    )
+    parser.add_argument(
+        "--disable_scoring",
+        action="store_true",
+        help="If True, disables scoring.",
     )
     args = parser.parse_args()
     args.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -486,7 +518,11 @@ def main(args):
         args.model_type = infer_model_type(args.model_name_or_path)
         assert args.model_type is not None
     if args.model_type.startswith("rag"):
-        model_class = RagTokenForGeneration if args.model_type == "rag_token" else RagSequenceForGeneration
+        model_class = (
+            RagTokenForGeneration
+            if args.model_type == "rag_token"
+            else RagSequenceForGeneration
+        )
         model_kwargs["n_docs"] = args.n_docs
         if args.index_name is not None:
             model_kwargs["index_name"] = args.index_name
@@ -498,38 +534,62 @@ def main(args):
     else:
         model_class = BartForConditionalGeneration
 
-    checkpoints = ([
-        f.path for f in os.scandir(args.model_name_or_path) if f.is_dir()
-    ] if args.eval_all_checkpoints else [args.model_name_or_path])
+    checkpoints = (
+        [f.path for f in os.scandir(args.model_name_or_path) if f.is_dir()]
+        if args.eval_all_checkpoints
+        else [args.model_name_or_path]
+    )
 
     logger.info("Evaluate the following checkpoints: %s", checkpoints)
 
     score_fn = get_scores if args.eval_mode == "e2e" else get_precision_at_k
-    evaluate_batch_fn = only_retrieve if args.only_retrieve else (
-        time_generation if args.timing else
-        (iterate_top if args.iterate_top else
-         (evaluate_batch_e2e if args.eval_mode ==
-          "e2e" else evaluate_batch_retrieval)))
+    evaluate_batch_fn = (
+        only_retrieve
+        if args.only_retrieve
+        else (
+            time_generation
+            if args.timing
+            else (
+                iterate_top
+                if args.iterate_top
+                else (
+                    evaluate_batch_e2e
+                    if args.eval_mode == "e2e"
+                    else evaluate_batch_retrieval
+                )
+            )
+        )
+    )
 
     for checkpoint in checkpoints:
-        if os.path.exists(args.predictions_path) and (not args.recalculate):
+        if (
+            os.path.exists(args.predictions_path)
+            and (not args.recalculate)
+            and not args.disable_scoring
+        ):
             logger.info(
-                "Calculating metrics based on an existing predictions file: {}"
-                .format(args.predictions_path))
+                "Calculating metrics based on an existing predictions file: {}".format(
+                    args.predictions_path
+                )
+            )
             score_fn(args, args.predictions_path, args.gold_data_path)
             continue
 
         logger.info("***** Running evaluation for {} *****".format(checkpoint))
         logger.info("  Batch size = %d", args.eval_batch_size)
-        logger.info("  Predictions will be stored under {}".format(
-            args.predictions_path))
+        logger.info(
+            "  Predictions will be stored under {}".format(
+                args.predictions_path
+            )
+        )
 
         if args.model_type.startswith("rag"):
-            retriever = RagRetriever.from_pretrained(checkpoint,
-                                                     **model_kwargs)
-            model = model_class.from_pretrained(checkpoint,
-                                                retriever=retriever,
-                                                **model_kwargs)
+            retriever = RagRetriever.from_pretrained(
+                checkpoint, **model_kwargs
+            )
+            model = model_class.from_pretrained(
+                checkpoint, retriever=retriever, **model_kwargs
+            )
             model.retriever.init_retrieval()
         else:
             model = model_class.from_pretrained(checkpoint, **model_kwargs)
@@ -538,16 +598,17 @@ def main(args):
         timings = []
         if args.timing or args.iterate_top:
             tokenizer = RagTokenizer.from_pretrained("facebook/rag-token-nq")
-        with open(args.evaluation_set,
-                  "r") as eval_file, open(args.predictions_path,
-                                          "w") as preds_file:
+        with open(args.evaluation_set, "r") as eval_file, open(
+            args.predictions_path, "w"
+        ) as preds_file:
             questions = []
             for line in tqdm(eval_file):
                 questions.append(line.strip())
                 if len(questions) == args.eval_batch_size:
                     if args.timing or args.iterate_top:
-                        answers = evaluate_batch_fn(args, model, questions,
-                                                    tokenizer)
+                        answers = evaluate_batch_fn(
+                            args, model, questions, tokenizer
+                        )
                         timings.append(answers)
                     else:
                         answers = evaluate_batch_fn(args, model, questions)
@@ -556,18 +617,23 @@ def main(args):
                     questions = []
             if len(questions) > 0:
                 if args.timing or args.iterate_top:
-                    answers = evaluate_batch_fn(args, model, questions,
-                                                tokenizer)
+                    answers = evaluate_batch_fn(
+                        args, model, questions, tokenizer
+                    )
                     timings.append(answers)
                 else:
                     answers = evaluate_batch_fn(args, model, questions)
                     preds_file.write("\n".join(answers))
                     preds_file.flush()
 
-            if not (args.timing or args.iterate_top):
+            if (
+                not args.timing
+                and not args.iterate_top
+                and not args.disable_scoring
+            ):
                 score_fn(args, args.predictions_path, args.gold_data_path)
         if args.timing:
-            print(f"Average time: {np.average(overall)}")
+            print(f"Average time: {np.average(timings)}")
 
 
 if __name__ == "__main__":
